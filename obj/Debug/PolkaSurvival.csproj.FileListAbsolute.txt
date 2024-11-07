@@ -1,0 +1,9 @@
+C:\lolphp\rdr2\PolkaSurvival\bin\Debug\PolkaSurvival.dll
+C:\lolphp\rdr2\PolkaSurvival\bin\Debug\PolkaSurvival.pdb
+C:\lolphp\rdr2\PolkaSurvival\bin\Debug\ScriptHookRDRNetAPI.dll
+C:\lolphp\rdr2\PolkaSurvival\bin\Debug\ScriptHookRDRNetAPI.xml
+C:\lolphp\rdr2\PolkaSurvival\obj\Debug\PolkaSurvival.csproj.AssemblyReference.cache
+C:\lolphp\rdr2\PolkaSurvival\obj\Debug\PolkaSurvival.csproj.CoreCompileInputs.cache
+C:\lolphp\rdr2\PolkaSurvival\obj\Debug\PolkaSurvival.csproj.CopyComplete
+C:\lolphp\rdr2\PolkaSurvival\obj\Debug\PolkaSurvival.dll
+C:\lolphp\rdr2\PolkaSurvival\obj\Debug\PolkaSurvival.pdb
