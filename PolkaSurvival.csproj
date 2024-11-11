@@ -32,7 +32,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="ScriptHookRDRNetAPI">
-      <HintPath>..\..\..\Program Files\Epic Games\RedDeadRedemption2\ScriptHookRDRNetAPI.dll</HintPath>
+      <HintPath>..\ScriptHookRDRDotNet\ScriptHookRDRNetAPI.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />

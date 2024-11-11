@@ -8,7 +8,7 @@ using System.Windows.Forms;
 namespace PolkaSurvival {
 	public class PolkaSurvival : Script {
 
-		private readonly int healingThreshold = 60;
+		private readonly int healingThreshold = 50;
 		//16 is when the core turns red.
 		private readonly int hurtingThreshold = 16;
 		private readonly int hurtingTimeToDieMax = (int)(3f * 60 * 1000);
@@ -64,6 +64,7 @@ namespace PolkaSurvival {
 		private int fullWetTimer;
 		private string _debug;
 		private bool showDebug = false;
+		private bool disbleAll = false;
 
 		public PolkaSurvival() {
 
@@ -75,10 +76,10 @@ namespace PolkaSurvival {
 			staminaHurtTimer = Game.GameTime;
 			halfWetTimer = Game.GameTime;
 			fullWetTimer = Game.GameTime;
-			
 
-			// 100 ticks per core;
-			dayDrainInterval = millisecondsPerDay / 100 / coresToDrainPerDay;
+
+			// 50 ticks at 2 hp per core;
+			dayDrainInterval = millisecondsPerDay / 50 / coresToDrainPerDay;
 			dayDrainTimer = Game.GameTime + dayDrainInterval;
 
 
@@ -100,27 +101,33 @@ namespace PolkaSurvival {
 
 
 		private void OnTick(object sender, EventArgs evt) {
+			if (disbleAll) {
+				return;
+			}
+
+
 			_debug = string.Empty;
-			_debug += $"Clock: {CLOCK.GET_CLOCK_HOURS()}:{CLOCK.GET_CLOCK_MINUTES()}:{CLOCK.GET_CLOCK_SECONDS()} - {CLOCK.GET_CLOCK_MONTH()}\n";
+			AddDebugMessage(() => $"Clock: {CLOCK.GET_CLOCK_HOURS()}:{CLOCK.GET_CLOCK_MINUTES()}:{CLOCK.GET_CLOCK_SECONDS()} - {CLOCK.GET_CLOCK_MONTH()}\n");
 
 			// Our current player ped
 			// Note: "Ped" is a class, not a type alias like it is in C++
 			Ped myPlayerPed = Game.Player.Character;
 			var playerTemperaure = Math.Round(MISC._GET_TEMPERATURE_AT_COORDS(myPlayerPed.Position), 2);
 
+
 			//Health Core Changes
 			if (myPlayerPed.Cores.Health.Value >= healingThreshold || myPlayerPed.Cores.Health.IsOverpowered) {
-				var scale = ScaleToRange(myPlayerPed.Cores.Health.Value, healingThreshold, 100);
-				if (myPlayerPed.Cores.Health.IsOverpowered) {
-					scale = 1f;
-				}
+				var scale = myPlayerPed.Cores.Health.IsOverpowered ? 1f : ScaleToRange(myPlayerPed.Cores.Health.Value, healingThreshold, 100);
+				AddDebugMessage(() => $"Healing Scale: {scale}\n");
 				PLAYER.SET_PLAYER_HEALTH_RECHARGE_MULTIPLIER(Game.Player, scale);
 			} else {
 				PLAYER.SET_PLAYER_HEALTH_RECHARGE_MULTIPLIER(Game.Player, 0f);
+				AddDebugMessage(() => $"Healing Scale: {0}\n");
 			}
 
 			//Start hurting player if health core is in the red.
 			if (myPlayerPed.Cores.Health.Value <= hurtingThreshold) {
+				AddDebugMessage(() => $"Hurting due to health core\n");
 				if (Game.GameTime >= hurtTimer) {
 
 					//Max HP adjusted for current core damage. (-1hp for every 1% percent core damage)
@@ -137,24 +144,28 @@ namespace PolkaSurvival {
 			//Hurt health core if stamina core is drained
 			if (myPlayerPed.Cores.Stamina.Value <= staminaThreshold) {
 				int staminaHurtInterval = MapToRange(myPlayerPed.Cores.Stamina.Value, 0, staminaThreshold, staminaHurtIntervalMin, staminaHurtIntervalMax);
+				AddDebugMessage(() => $"Health Drain due to stamina: {staminaHurtInterval}\n");
+				AddDebugMessage(() => $"Next Drain in {staminaHurtTimer - Game.GameTime}\n");
 				if (Game.GameTime >= staminaHurtTimer) {
 					staminaHurtTimer = Game.GameTime + staminaHurtInterval;
 					myPlayerPed.Cores.Health.Value -= 1;
 				}
 			}
 
-			_debug += $"Day Drain Intereval: {dayDrainInterval}\n";
-			_debug += $"Next Drain in {dayDrainTimer - Game.GameTime}\n";
+
+			AddDebugMessage(() => $"Day Drain Intereval: {dayDrainInterval}\n");
+			AddDebugMessage(() => $"Next Drain in {dayDrainTimer - Game.GameTime}\n");
 			//Extra core drains
+			//Note: Depleting by 1 seems to cause an issue where it will occasionally jump back up by 1, causing it to never drain below that value.
 			if (Game.GameTime >= dayDrainTimer) {
-				myPlayerPed.Cores.Health.Value -= 1;
-				myPlayerPed.Cores.Stamina.Value -= 1;
+				myPlayerPed.Cores.Health.Value -= 2;
+				myPlayerPed.Cores.Stamina.Value -= 2;
 				dayDrainTimer = Game.GameTime + dayDrainInterval;
 			}
 
 			//Watery Stuff
 			if (myPlayerPed.IsInWater) {
-				_debug += "In Water (half)\n";
+				AddDebugMessage(() => "In Water (half)\n");
 				if (!waterTouched) {
 					waterTouched = true;
 					waterTouchedTime = Game.GameTime + timeTillHalfWet;
@@ -168,7 +179,7 @@ namespace PolkaSurvival {
 
 
 			if (myPlayerPed.IsSwimmingUnderwater || myPlayerPed.IsUnderwater || myPlayerPed.IsSwimming) {
-				_debug += "In Water (Full)\n";
+				AddDebugMessage(() => "In Water (Full)\n");
 				lasFullfWetTime = Game.GameTime;
 				lastHalfWetTime = Game.GameTime;
 				isFullWet = true;
@@ -183,35 +194,36 @@ namespace PolkaSurvival {
 			if (halfWetDryDown <= 0) {
 				isHalfWet = false;
 			} else {
-				_debug += $"HalfwetDry in {(lastHalfWetTime + halfWetDryTime) - Game.GameTime}\n";
+				AddDebugMessage(() => $"HalfwetDry in {(lastHalfWetTime + halfWetDryTime) - Game.GameTime}\n");
 			}
 
 			int fullWetDryDown = lasFullfWetTime + fullWetDryTime - Game.GameTime;
 			if (fullWetDryDown < 0) {
 				isFullWet = false;
 			} else {
-				_debug += $"Full Wet DryDown in {(lasFullfWetTime + fullWetDryTime) - Game.GameTime}\n";
+				AddDebugMessage(() => $"Full Wet DryDown in {(lasFullfWetTime + fullWetDryTime) - Game.GameTime}\n");
 			}
 
 			if (isHalfWet) {
-				_debug += $"[Half Wet]\n";
+				AddDebugMessage(() => $"[Half Wet]\n");
+
 				if (playerTemperaure <= 27) {
 					_debug += $"{Game.GameTime - halfWetTimer} ";
 					if (Game.GameTime >= halfWetTimer) {
-						_debug += "Half Draining\n";
-						myPlayerPed.Cores.Health.Value = (int)Math.Floor(myPlayerPed.Cores.Health.Value * .99f);
+						AddDebugMessage(() => "Half Draining\n");
+						myPlayerPed.Cores.Health.Value -= 1;
 						halfWetTimer = Game.GameTime + halfWetIntervals.GetIntervalByTemp(playerTemperaure);
 					}
 				}
 			}
 
 			if (isFullWet) {
-				_debug += $"[Full Wet]\n";
+				AddDebugMessage(() => $"[Full Wet]\n");
 				if (playerTemperaure <= 27) {
-					_debug += $"{Game.GameTime - fullWetTimer} ";
+					AddDebugMessage(() => $"{Game.GameTime - fullWetTimer} ");
 					if (Game.GameTime >= fullWetTimer) {
-						_debug += "Full Draining\n";
-						myPlayerPed.Cores.Health.Value = (int)Math.Floor(myPlayerPed.Cores.Health.Value * .99f);
+						AddDebugMessage(() => "Full Draining\n");
+						myPlayerPed.Cores.Health.Value -= 1;
 						fullWetTimer = Game.GameTime + fullWetIntervals.GetIntervalByTemp(playerTemperaure);
 					}
 				}
@@ -221,11 +233,9 @@ namespace PolkaSurvival {
 				myPlayerPed.WetnessHeight = 0f;
 			}
 
-			_debug += $"[Cores] Health {myPlayerPed.Cores.Health.Value}, Stamina {myPlayerPed.Cores.Stamina.Value}, DeadEye {myPlayerPed.Cores.DeadEye.Value}\n";
-
-			_debug += $"[Water Touched] {waterTouched}\n";
-
-			_debug += $"Temp {playerTemperaure}c";
+			AddDebugMessage(() => $"[Cores] Health {myPlayerPed.Cores.Health.Value}, Stamina {myPlayerPed.Cores.Stamina.Value}, DeadEye {myPlayerPed.Cores.DeadEye.Value}\n");
+			AddDebugMessage(() => $"[Water Touched] {waterTouched}\n");
+			AddDebugMessage(() => $"Temp {playerTemperaure}c");
 
 			if (showDebug) {
 				TextElement textElement = new TextElement($"{_debug}", new PointF(200.0f, 200.0f), 0.35f);
@@ -238,8 +248,6 @@ namespace PolkaSurvival {
 			if (e.KeyCode == Keys.F10) {
 				//CAM._TRIGGER_MISSION_FAILED_CAM();
 				Ped myPlayerPed = Game.Player.Character;
-
-				
 
 				// 0% Core = 150
 				// 10% Core = 160
@@ -307,6 +315,11 @@ namespace PolkaSurvival {
 			return string.Format("{0:D2}:{1:D2}:{2:D2}", time.Hours, time.Minutes, time.Seconds);
 		}
 
+		public void AddDebugMessage(Func<string> message) {
+			if (showDebug) {
+				_debug += message();
+			}
+		}
 		public void SetNextClockInterval() {
 			dayDrainTimer += dayDrainInterval;
 			if (dayDrainTimer > secondsPerDay) {
