@@ -2,11 +2,17 @@
 using RDR2.Native;
 using RDR2.UI;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
+using System.IO;
+using System.Runtime.CompilerServices;
 using System.Windows.Forms;
 
 namespace PolkaSurvival {
 	public class PolkaSurvival : Script {
+
+		private Dictionary<string, string> _config;
 
 		private readonly int healingThreshold = 50;
 		//16 is when the core turns red.
@@ -63,14 +69,19 @@ namespace PolkaSurvival {
 		private TemperatureBandIntervals fullWetIntervals = new TemperatureBandIntervals();
 		private int fullWetTimer;
 		private string _debug;
-		private bool showDebug = false;
+		private bool showDebug = true;
 		private bool disbleAll = false;
 
 		public PolkaSurvival() {
+			ReadConfiguration();
 
-			PLAYER._ENABLE_EAGLEEYE(Game.Player, false);
-			PLAYER._SET_SPECIAL_ABILITY_DURATION_COST(Game.Player, 10f);
-			PLAYER._SET_SPECIAL_ABILITY_ACTIVATION_COST(Game.Player, 10f, 0);
+			disbleAll = GetConfigBool("DISABLE_ALL_FEATURES", false);
+
+			PLAYER._ENABLE_EAGLEEYE(Game.Player, GetConfigBool("ENABLE_EAGLE_EYE", false));
+
+			//TODO: Set these to default if mod is manually disabled
+			PLAYER._SET_SPECIAL_ABILITY_DURATION_COST(Game.Player, GetConfigFloat("DEADEYE_DURATION_COST", 10f));
+			PLAYER._SET_SPECIAL_ABILITY_ACTIVATION_COST(Game.Player, GetConfigFloat("DEADEYE_ACTIVATION_COST", 10f), 0);
 
 			hurtTimer = Game.GameTime;
 			staminaHurtTimer = Game.GameTime;
@@ -96,6 +107,11 @@ namespace PolkaSurvival {
 			Tick += OnTick;
 			KeyDown += OnKeyDown;
 			Interval = 1;
+
+			if (!disbleAll) { 
+				RDR2.UI.Screen.DisplaySubtitle($"Polka Survival Activated");
+			}
+
 		}
 
 
@@ -104,9 +120,8 @@ namespace PolkaSurvival {
 			if (disbleAll) {
 				return;
 			}
-
-
 			_debug = string.Empty;
+
 			AddDebugMessage(() => $"Clock: {CLOCK.GET_CLOCK_HOURS()}:{CLOCK.GET_CLOCK_MINUTES()}:{CLOCK.GET_CLOCK_SECONDS()} - {CLOCK.GET_CLOCK_MONTH()}\n");
 
 			// Our current player ped
@@ -324,6 +339,77 @@ namespace PolkaSurvival {
 			dayDrainTimer += dayDrainInterval;
 			if (dayDrainTimer > secondsPerDay) {
 				dayDrainTimer -= secondsPerDay;
+			}
+		}
+
+		public void ReadConfiguration() {
+			_config = new Dictionary<string, string>();
+			var configFile = string.Empty;
+			try {
+				configFile = System.IO.File.ReadAllText(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName) + @"\scripts\PolkaSurvival.ini");
+			} catch (Exception e) {
+				//RDR2.UI.Screen.DisplaySubtitle($"Config file not found");
+				return;
+			}
+
+			if (String.IsNullOrEmpty(configFile)) {
+				//RDR2.UI.Screen.DisplaySubtitle($"Config file empty");
+				return;
+			}
+
+			var lines = configFile.Split(
+				new string[] { "\r\n", "\r", "\n" },
+				StringSplitOptions.None
+			);
+
+			foreach (var line in lines) {
+				if (string.IsNullOrWhiteSpace(line) || line.StartsWith(";") || line.StartsWith("[")) {
+					continue;
+				}
+				string[] parts = line.Split('=');
+				_config.Add(parts[0].Trim(), parts[1].Trim());
+			}
+		}
+
+		public int GetConfigInt(string key, int defaultValue) {
+			if (!_config.ContainsKey(key)) {
+				return defaultValue;
+			}
+
+			if (int.TryParse(_config[key], out var value)) {
+				return value;
+			} else {
+				return defaultValue;
+			}
+		}
+
+		public float GetConfigFloat(string key, float defaultValue) {
+			if (!_config.ContainsKey(key)) {
+				return defaultValue;
+			}
+
+			if (float.TryParse(_config[key], out var value)) {
+				return value;
+			} else {
+				return defaultValue;
+			}
+		}
+
+		public bool GetConfigBool(string key, bool defaultValue) {
+			if (!_config.ContainsKey(key)) {
+				return defaultValue;
+			}
+
+			if (_config[key] == "1") {
+				return true;
+			} else if (_config[key] == "0") {
+				return false;
+			}
+
+			if (bool.TryParse(_config[key], out var value)) {
+				return value;
+			} else {
+				return defaultValue;
 			}
 		}
 

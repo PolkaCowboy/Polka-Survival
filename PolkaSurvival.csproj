@@ -49,6 +49,11 @@
     <Compile Include="PolkaSurvival.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="PolkaSurvival.ini">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>xcopy /y /d "$(TargetPath)" "C:\Program Files\Epic Games\RedDeadRedemption2\scripts"</PostBuildEvent>
