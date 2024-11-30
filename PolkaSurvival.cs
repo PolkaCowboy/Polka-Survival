@@ -2,17 +2,11 @@
 using RDR2.Native;
 using RDR2.UI;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
-using System.IO;
-using System.Runtime.CompilerServices;
 using System.Windows.Forms;
 
 namespace PolkaSurvival {
 	public class PolkaSurvival : Script {
-
-		private Dictionary<string, string> _config;
 
 		private readonly int healingThreshold;
 		//16 is when the core turns red.
@@ -70,35 +64,34 @@ namespace PolkaSurvival {
 
 
 		private string _debug;
-		private bool showDebug = true;
+		private bool showDebug = false;
 		private bool disbleAll = false;
 
 		public PolkaSurvival() {
-			ReadConfiguration();
-
-			disbleAll = GetConfigBool("DISABLE_ALL_FEATURES", false);
+			
+			disbleAll = Settings.GetValue("MISC", "DISABLE_ALL_FEATURES", false);
 
 			if (disbleAll) {
 				PLAYER._ENABLE_EAGLEEYE(Game.Player, true);
 				PLAYER._SET_SPECIAL_ABILITY_DURATION_COST(Game.Player, 4.27f);
 				PLAYER._SET_SPECIAL_ABILITY_ACTIVATION_COST(Game.Player, 4.25f, 0);
 			} else {
-				PLAYER._ENABLE_EAGLEEYE(Game.Player, GetConfigBool("ENABLE_EAGLE_EYE", false));
-				PLAYER._SET_SPECIAL_ABILITY_DURATION_COST(Game.Player, GetConfigFloat("DEADEYE_DURATION_COST", 10f));
-				PLAYER._SET_SPECIAL_ABILITY_ACTIVATION_COST(Game.Player, GetConfigFloat("DEADEYE_ACTIVATION_COST", 10f), 0);
+				PLAYER._ENABLE_EAGLEEYE(Game.Player, Settings.GetValue("Misc", "ENABLE_EAGLE_EYE", false));
+				PLAYER._SET_SPECIAL_ABILITY_DURATION_COST(Game.Player, Settings.GetValue("DEADEYE", "DEADEYE_DURATION_COST", 10f));
+				PLAYER._SET_SPECIAL_ABILITY_ACTIVATION_COST(Game.Player, Settings.GetValue("DEADEYE", "DEADEYE_ACTIVATION_COST", 10f), 0);
 			}
 
-			healingThreshold = GetConfigInt("HEALING_THRESHHOLD", 50);
-			coresToDrainPerDay = GetConfigFloat("HEALTH_CORE_DRAINS_DAILY", 2);
+			healingThreshold = Settings.GetValue("HEALTH CORE", "HEALING_THRESHHOLD", 50);
+			coresToDrainPerDay = Settings.GetValue("HEALTH_CORE", "HEALTH_CORE_DRAINS_DAILY", 2);
 
-			hurtingTimeToDieMax = (int)(GetConfigFloat("HURTING_TIME_TO_DIE_MAX", 3f) * 60 * 1000);
-			hurtingTimeToDieMin = (int)(GetConfigFloat("HURTING_TIME_TO_DIE_MAX", 1.5f) * 60 * 1000);
+			hurtingTimeToDieMax = (int)(Settings.GetValue("HURTING", "HURTING_TIME_TO_DIE_MAX", 3f) * 60 * 1000);
+			hurtingTimeToDieMin = (int)(Settings.GetValue("HURTING", "HURTING_TIME_TO_DIE_MAX", 1.5f) * 60 * 1000);
 
-			staminaHurtsHealth = GetConfigBool("STAMINA_HURTS_HEALTH_CORE", true);
+			staminaHurtsHealth = Settings.GetValue("HEALTH CORE", "STAMINA_HURTS_HEALTH_CORE", true);
 
-			enableHypothermia = GetConfigBool("ENABLE_HYPOTHERMINA", true);
-			timeTillHalfWet = (int)GetConfigFloat("TIME_TO_GET_WET", 5f) * 1000;
-			halfWetDryTime = (int)GetConfigFloat("TIME_TO_DRY", 30f) * 1000;
+			enableHypothermia = Settings.GetValue("HYPOTHERMINA", "ENABLE_HYPOTHERMINA", true);
+			timeTillHalfWet = (int)Settings.GetValue("HYPOTHERMINA", "TIME_TO_GET_WET", 5f) * 1000;
+			halfWetDryTime = (int)Settings.GetValue("HYPOTHERMINA", "TIME_TO_DRY", 30f) * 1000;
 			fullWetDryTime = halfWetDryTime / 2;
 
 			hurtTimer = Game.GameTime;
@@ -227,21 +220,21 @@ namespace PolkaSurvival {
 				if (halfWetDryDown <= 0) {
 					isHalfWet = false;
 				} else {
-					AddDebugMessage(() => $"HalfwetDry in {(lastHalfWetTime + halfWetDryTime) - Game.GameTime}\n");
+					AddDebugMessage(() => $"Half Wet Dry Down in {(lastHalfWetTime + halfWetDryTime) - Game.GameTime}\n");
 				}
 
 				int fullWetDryDown = lasFullfWetTime + fullWetDryTime - Game.GameTime;
 				if (fullWetDryDown < 0) {
 					isFullWet = false;
 				} else {
-					AddDebugMessage(() => $"Full Wet DryDown in {(lasFullfWetTime + fullWetDryTime) - Game.GameTime}\n");
+					AddDebugMessage(() => $"Full Wet Dry Down in {(lasFullfWetTime + fullWetDryTime) - Game.GameTime}\n");
 				}
 
 				if (isHalfWet) {
 					AddDebugMessage(() => $"[Half Wet]\n");
 
 					if (playerTemperaure <= 27) {
-						_debug += $"{Game.GameTime - halfWetTimer} ";
+						_debug += $"Draining due to Half Wet in {halfWetTimer - Game.GameTime}\n";
 						if (Game.GameTime >= halfWetTimer) {
 							AddDebugMessage(() => "Half Draining\n");
 							myPlayerPed.Cores.Health.Value -= 1;
@@ -252,10 +245,9 @@ namespace PolkaSurvival {
 
 				if (isFullWet) {
 					AddDebugMessage(() => $"[Full Wet]\n");
+					AddDebugMessage(() => $"Drain due to full wet in {fullWetTimer - Game.GameTime}\n");
 					if (playerTemperaure <= 27) {
-						AddDebugMessage(() => $"{Game.GameTime - fullWetTimer} ");
 						if (Game.GameTime >= fullWetTimer) {
-							AddDebugMessage(() => "Full Draining\n");
 							myPlayerPed.Cores.Health.Value -= 1;
 							fullWetTimer = Game.GameTime + fullWetIntervals.GetIntervalByTemp(playerTemperaure);
 						}
@@ -279,40 +271,9 @@ namespace PolkaSurvival {
 
 		private void OnKeyDown(object sender, KeyEventArgs e) {
 			// (Keyboard Only)
-			if (e.KeyCode == Keys.F10) {
-				//CAM._TRIGGER_MISSION_FAILED_CAM();
-				Ped myPlayerPed = Game.Player.Character;
+			//if (e.KeyCode == Keys.F10) {
 
-				// 0% Core = 150
-				// 10% Core = 160
-				// 100% core = 250 health
-
-				//RDR2.UI.Screen.DisplaySubtitle($"Health: {health}");
-
-				//var health = ENTITY.GET_ENTITY_HEALTH(PLAYER.PLAYER_PED_ID());
-				//ENTITY._CHANGE_ENTITY_HEALTH(PLAYER.PLAYER_PED_ID(), (myPlayerPed.Health - (myPlayerPed.Health / 5)) * -1, 0, 0);
-
-				//myPlayerPed.Cores.Health.Value = 16;
-
-
-
-
-				//PLAYER.SET_PLAYER_HEALTH_RECHARGE_MULTIPLIER(Game.Player, -1.0f);
-				//RDR2.UI.Screen.DisplaySubtitle($"{myPlayerPed.Cores.Health.Value}: {PLAYER._GET_PLAYER_HEALTH_RECHARGE_MULTIPLIER(Game.Player.ID)}");
-
-
-				//RDR2.Native.Function.Call(12133439210843509940uL, anim);
-
-				//var help = ANIMSCENE._CREATE_ANIM_SCENE("amb_misc@world_human_vomit_kneel@male_a@idle_b", 0, "idle_d", false, false);
-				//RDR2.UI.Screen.DisplaySubtitle($"Hey: {help}");
-				//if (Function.Call<bool>(2882145328773677258uL, anim)) {
-				//	//RDR2.UI.Screen.DisplaySubtitle($"Loaded, {Game.Player.NativeValue}, {Game.Player.ID}, {PLAYER.PLAYER_PED_ID()}");
-				//	Function.Call(16881741240819145620uL, PLAYER.PLAYER_PED_ID(), anim, "idle_k", 1.0f, -1.0f, -1, 131072, 0, 0, 0, 0, 0, 0);
-				//} else {
-				//	//RDR2.UI.Screen.DisplaySubtitle($"Not Loaded");
-				//}
-
-			}
+			//}
 		}
 
 		public float ScaleToRange(float value, int minValue, int maxValue) {
@@ -358,77 +319,6 @@ namespace PolkaSurvival {
 			dayDrainTimer += dayDrainInterval;
 			if (dayDrainTimer > secondsPerDay) {
 				dayDrainTimer -= secondsPerDay;
-			}
-		}
-
-		public void ReadConfiguration() {
-			_config = new Dictionary<string, string>();
-			var configFile = string.Empty;
-			try {
-				configFile = System.IO.File.ReadAllText(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName) + @"\scripts\PolkaSurvival.ini");
-			} catch (Exception e) {
-				//RDR2.UI.Screen.DisplaySubtitle($"Config file not found");
-				return;
-			}
-
-			if (String.IsNullOrEmpty(configFile)) {
-				//RDR2.UI.Screen.DisplaySubtitle($"Config file empty");
-				return;
-			}
-
-			var lines = configFile.Split(
-				new string[] { "\r\n", "\r", "\n" },
-				StringSplitOptions.None
-			);
-
-			foreach (var line in lines) {
-				if (string.IsNullOrWhiteSpace(line) || line.StartsWith(";") || line.StartsWith("[")) {
-					continue;
-				}
-				string[] parts = line.Split('=');
-				_config.Add(parts[0].Trim(), parts[1].Trim());
-			}
-		}
-
-		public int GetConfigInt(string key, int defaultValue) {
-			if (!_config.ContainsKey(key)) {
-				return defaultValue;
-			}
-
-			if (int.TryParse(_config[key], out var value)) {
-				return value;
-			} else {
-				return defaultValue;
-			}
-		}
-
-		public float GetConfigFloat(string key, float defaultValue) {
-			if (!_config.ContainsKey(key)) {
-				return defaultValue;
-			}
-
-			if (float.TryParse(_config[key], out var value)) {
-				return value;
-			} else {
-				return defaultValue;
-			}
-		}
-
-		public bool GetConfigBool(string key, bool defaultValue) {
-			if (!_config.ContainsKey(key)) {
-				return defaultValue;
-			}
-
-			if (_config[key] == "1") {
-				return true;
-			} else if (_config[key] == "0") {
-				return false;
-			}
-
-			if (bool.TryParse(_config[key], out var value)) {
-				return value;
-			} else {
-				return defaultValue;
 			}
 		}
 
