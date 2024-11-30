@@ -48,8 +48,8 @@ The intensity of the decay is influenced by the current temperature. So wading t
 
 # Installation
 
-1. Install ScriptHookRDR2DotNet-V2 is installed
-2. Dowloand the latest release and extract the contents of the zip fold into your `RedDeadRedemption2` install folder. the `.dll` and `.ini` need to end up in `../RedDeadRedemption2/scripts/`
+1. Install [ScriptHookRDR2DotNet-V2](https://github.com/Halen84/ScriptHookRDR2DotNet-V2)
+2. Dowloand [the latest release](https://github.com/PolkaCowboy/Polka-Survival/releases) and extract the contents of the zip file into your `RedDeadRedemption2` install folder. the `.dll` and `.ini` need to end up in `../RedDeadRedemption2/scripts/`
 
 That should be it! You should see a message pop up sayinf **Polka Survival Activated** if everything is correct. 
 
