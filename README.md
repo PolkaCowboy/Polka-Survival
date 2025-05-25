@@ -44,6 +44,7 @@ These health core decays will last for a while after leaving the water.
 The intensity of the decay is influenced by the current temperature. So wading through the swamps will be trivial, if impactful at all. But falling into a lake in Ambarino can result in a very bad time.
 
 # Requirements
+[ScriptHookRDR2 V2](https://www.nexusmods.com/reddeadredemption2/mods/1472)
 [ScriptHookRDR2DotNet-V2](https://github.com/Halen84/ScriptHookRDR2DotNet-V2)
 
 # Installation
