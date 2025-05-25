@@ -45,6 +45,7 @@ The intensity of the decay is influenced by the current temperature. So wading t
 
 # Requirements
 [ScriptHookRDR2 V2](https://www.nexusmods.com/reddeadredemption2/mods/1472)
+
 [ScriptHookRDR2DotNet-V2](https://github.com/Halen84/ScriptHookRDR2DotNet-V2)
 
 # Installation
