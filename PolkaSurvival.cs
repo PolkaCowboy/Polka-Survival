@@ -3,7 +3,6 @@ using RDR2.Native;
 using RDR2.UI;
 using System;
 using System.Drawing;
-using System.Windows.Forms;
 
 namespace PolkaSurvival {
 	public class PolkaSurvival : Script {
@@ -25,7 +24,6 @@ namespace PolkaSurvival {
 		// 3am-4am: 88320
 		// One in-game day: 48 real world minutes;
 		private readonly int millisecondsPerDay = 48 * 60 * 1000;
-		private readonly int secondsPerDay = 24 * 60 * 60;
 		private int dayDrainTimer;
 		private int dayDrainInterval;
 
@@ -37,6 +35,7 @@ namespace PolkaSurvival {
 		private readonly int staminaHurtIntervalMin = 6000;
 		private int staminaHurtTimer;
 
+		private readonly bool enableEagleEye;
 		private bool enableHypothermia;
 		private bool isHalfWet = false;
 		private bool waterTouched = false;
@@ -45,19 +44,11 @@ namespace PolkaSurvival {
 		private int lastHalfWetTime;
 		private int halfWetDryTime;
 
-		/*
-		 * Hot:  27+ >80F
-		 * Warm: 27 / 80F
-		 * Mild: 21 / ~70F
-		 * Cold: 10 / 50f
-		 * Freezing: 0 /32f
-		 */
-
 		private TemperatureBandIntervals halfWetIntervals = new TemperatureBandIntervals();
 		private int halfWetTimer;
 
 		private bool isFullWet = false;
-		private int lasFullfWetTime;
+		private int lastFullWetTime;
 		private int fullWetDryTime = 15000;
 		private TemperatureBandIntervals fullWetIntervals = new TemperatureBandIntervals();
 		private int fullWetTimer;
@@ -65,29 +56,30 @@ namespace PolkaSurvival {
 
 		private string _debug;
 		private bool showDebug = false;
-		private bool disbleAll = false;
+		private bool disableAll = false;
 
 		public PolkaSurvival() {
 			
-			disbleAll = Settings.GetValue("MISC", "DISABLE_ALL_FEATURES", false);
+			disableAll = Settings.GetValue("MISC", "DISABLE_ALL_FEATURES", false);
 
-			if (disbleAll) {
+			if (disableAll) {
 				PLAYER._ENABLE_EAGLEEYE(Game.Player, true);
 				PLAYER._SET_SPECIAL_ABILITY_DURATION_COST(Game.Player, 4.27f);
 				PLAYER._SET_SPECIAL_ABILITY_ACTIVATION_COST(Game.Player, 4.25f, 0);
 			} else {
-				PLAYER._ENABLE_EAGLEEYE(Game.Player, Settings.GetValue("Misc", "ENABLE_EAGLE_EYE", false));
+				enableEagleEye = Settings.GetValue("Misc", "ENABLE_EAGLE_EYE", false);
+				PLAYER._ENABLE_EAGLEEYE(Game.Player, enableEagleEye);
 				PLAYER._SET_SPECIAL_ABILITY_DURATION_COST(Game.Player, Settings.GetValue("DEADEYE", "DEADEYE_DURATION_COST", 10f));
 				PLAYER._SET_SPECIAL_ABILITY_ACTIVATION_COST(Game.Player, Settings.GetValue("DEADEYE", "DEADEYE_ACTIVATION_COST", 10f), 0);
 			}
 
-			healingThreshold = Settings.GetValue("HEALTH CORE", "HEALING_THRESHHOLD", 50);
+			healingThreshold = Settings.GetValue("HEALTH_CORE", "HEALING_THRESHOLD", 50);
 			coresToDrainPerDay = Settings.GetValue("HEALTH_CORE", "HEALTH_CORE_DRAINS_DAILY", 2);
 
 			hurtingTimeToDieMax = (int)(Settings.GetValue("HURTING", "HURTING_TIME_TO_DIE_MAX", 3f) * 60 * 1000);
-			hurtingTimeToDieMin = (int)(Settings.GetValue("HURTING", "HURTING_TIME_TO_DIE_MAX", 1.5f) * 60 * 1000);
+			hurtingTimeToDieMin = (int)(Settings.GetValue("HURTING", "HURTING_TIME_TO_DIE_MIN", 1.5f) * 60 * 1000);
 
-			staminaHurtsHealth = Settings.GetValue("HEALTH CORE", "STAMINA_HURTS_HEALTH_CORE", true);
+			staminaHurtsHealth = Settings.GetValue("HEALTH_CORE", "STAMINA_HURTS_HEALTH_CORE", true);
 
 			enableHypothermia = Settings.GetValue("HYPOTHERMINA", "ENABLE_HYPOTHERMINA", true);
 			timeTillHalfWet = (int)Settings.GetValue("HYPOTHERMINA", "TIME_TO_GET_WET", 5f) * 1000;
@@ -115,10 +107,9 @@ namespace PolkaSurvival {
 			fullWetIntervals.Freezing = 1000;
 
 			Tick += OnTick;
-			KeyDown += OnKeyDown;
 			Interval = 1;
 
-			if (!disbleAll) {
+			if (!disableAll) {
 				RDR2.UI.Screen.DisplaySubtitle($"Polka Survival Activated");
 			}
 
@@ -127,10 +118,12 @@ namespace PolkaSurvival {
 
 
 		private void OnTick(object sender, EventArgs evt) {
-			if (disbleAll) {
+			if (disableAll) {
 				return;
 			}
 			_debug = string.Empty;
+
+			PLAYER._ENABLE_EAGLEEYE(Game.Player, enableEagleEye);
 
 			AddDebugMessage(() => $"Clock: {CLOCK.GET_CLOCK_HOURS()}:{CLOCK.GET_CLOCK_MINUTES()}:{CLOCK.GET_CLOCK_SECONDS()} - {CLOCK.GET_CLOCK_MONTH()}\n");
 
@@ -206,7 +199,7 @@ namespace PolkaSurvival {
 
 				if (myPlayerPed.IsSwimmingUnderwater || myPlayerPed.IsUnderwater || myPlayerPed.IsSwimming) {
 					AddDebugMessage(() => "In Water (Full)\n");
-					lasFullfWetTime = Game.GameTime;
+					lastFullWetTime = Game.GameTime;
 					lastHalfWetTime = Game.GameTime;
 					isFullWet = true;
 					isHalfWet = true;
@@ -223,18 +216,18 @@ namespace PolkaSurvival {
 					AddDebugMessage(() => $"Half Wet Dry Down in {(lastHalfWetTime + halfWetDryTime) - Game.GameTime}\n");
 				}
 
-				int fullWetDryDown = lasFullfWetTime + fullWetDryTime - Game.GameTime;
-				if (fullWetDryDown < 0) {
+				int fullWetDryDown = lastFullWetTime + fullWetDryTime - Game.GameTime;
+				if (fullWetDryDown <= 0) {
 					isFullWet = false;
 				} else {
-					AddDebugMessage(() => $"Full Wet Dry Down in {(lasFullfWetTime + fullWetDryTime) - Game.GameTime}\n");
+					AddDebugMessage(() => $"Full Wet Dry Down in {(lastFullWetTime + fullWetDryTime) - Game.GameTime}\n");
 				}
 
 				if (isHalfWet) {
 					AddDebugMessage(() => $"[Half Wet]\n");
 
 					if (playerTemperaure <= 27) {
-						_debug += $"Draining due to Half Wet in {halfWetTimer - Game.GameTime}\n";
+						AddDebugMessage(() => $"Draining due to Half Wet in {halfWetTimer - Game.GameTime}\n");
 						if (Game.GameTime >= halfWetTimer) {
 							AddDebugMessage(() => "Half Draining\n");
 							myPlayerPed.Cores.Health.Value -= 1;
@@ -269,13 +262,6 @@ namespace PolkaSurvival {
 			}
 		}
 
-		private void OnKeyDown(object sender, KeyEventArgs e) {
-			// (Keyboard Only)
-			//if (e.KeyCode == Keys.F10) {
-
-			//}
-		}
-
 		public float ScaleToRange(float value, int minValue, int maxValue) {
 			// Ensure maxValue is greater than minValue to avoid division by zero or negative ranges
 			if (maxValue <= minValue)
@@ -301,27 +287,11 @@ namespace PolkaSurvival {
 			return (int)Math.Round(outMin + (proportion * (outMax - outMin)));
 		}
 
-		public int InGameClockToSeconds() {
-			return (CLOCK.GET_CLOCK_HOURS() * 60 * 60) + (CLOCK.GET_CLOCK_MINUTES() * 60) + CLOCK.GET_CLOCK_SECONDS();
-		}
-
-		public string TimerToInGameClock() {
-			TimeSpan time = TimeSpan.FromSeconds(dayDrainTimer);
-			return string.Format("{0:D2}:{1:D2}:{2:D2}", time.Hours, time.Minutes, time.Seconds);
-		}
-
 		public void AddDebugMessage(Func<string> message) {
 			if (showDebug) {
 				_debug += message();
 			}
 		}
-		public void SetNextClockInterval() {
-			dayDrainTimer += dayDrainInterval;
-			if (dayDrainTimer > secondsPerDay) {
-				dayDrainTimer -= secondsPerDay;
-			}
-		}
-
 	}
 
 	public class TemperatureBandIntervals {
