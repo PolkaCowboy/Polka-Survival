@@ -52,8 +52,9 @@ The intensity of the decay is influenced by the current temperature. So wading t
 
 1. Install [ScriptHookRDR2 V2](https://www.nexusmods.com/reddeadredemption2/mods/1472)
 2. Install [ScriptHookRDR2DotNet-V2](https://github.com/Halen84/ScriptHookRDR2DotNet-V2)
-3. Download [the latest release](https://codeberg.org/PolkaCowboy/Polka-Survival/releases) and extract the contents of the zip file into your `RedDeadRedemption2` install folder. the `.dll` and `.ini` need to end up in `../RedDeadRedemption2/scripts/`
+3. Download [the latest release](https://github.com/PolkaCowboy/Polka-Survival/releases) and extract the contents of the zip file into your `RedDeadRedemption2` install folder. the `.dll` and `.ini` need to end up in `../RedDeadRedemption2/scripts/`
 
 That should be it! You should see a message pop up saying **Polka Survival Activated** when you start the game if everything is correct. 
 
 Many of the values can be tweaks and feature enabled/disabled via the .ini file. If you make a change while the game is running you can reload the script with the `ins` key without restarting. This key is a config within ScriptHookRDR2DotNet-V2's .ini and can be changed to your liking there.
+
